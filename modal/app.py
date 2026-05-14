@@ -30,23 +30,31 @@ def _download_model() -> None:
     )
 
 
-# nano-vllm-voxcpm needs flash-attn (Triton + FlashAttention CUDA stack), so we
-# build on top of a CUDA "devel" base image rather than debian_slim. Modal's
-# host driver supports CUDA 12.x; 12.8.1 is the documented sweet spot.
-CUDA_TAG = "12.8.1-devel-ubuntu24.04"
+# nano-vllm-voxcpm needs flash-attn (CUDA + FlashAttention stack). We pin a
+# known-good combo: CUDA 12.4 base + torch 2.5.1+cu124 + flash-attn 2.7.4.post1.
+# Using PyPI's torch directly pulls a CUDA-13-bundled wheel that mismatches a
+# CUDA 12 base image, so torch is installed from PyTorch's cu124 index.
+CUDA_TAG = "12.4.1-devel-ubuntu22.04"
 
 image = (
     modal.Image.from_registry(f"nvidia/cuda:{CUDA_TAG}", add_python="3.11")
     .entrypoint([])
     .apt_install("ffmpeg", "git", "libsndfile1")
-    # torch first so flash-attn can find it during its build step.
+    # torch from PyTorch's cu124 wheel index so the CUDA bundle matches the base image.
     .pip_install(
-        "torch>=2.5.0,!=2.6.*",
-        "numpy>=1.26",
+        "torch==2.5.1",
+        extra_options="--index-url https://download.pytorch.org/whl/cu124",
     )
-    # flash-attn must be built without build isolation so it sees the installed torch.
+    # Build deps for flash-attn under --no-build-isolation.
     .pip_install(
-        "flash-attn",
+        "numpy>=1.26,<2",
+        "packaging",
+        "wheel",
+        "ninja",
+    )
+    # flash-attn 2.7.4.post1 has prebuilt wheels for torch 2.5 + cu124.
+    .pip_install(
+        "flash-attn==2.7.4.post1",
         extra_options="--no-build-isolation",
     )
     .pip_install(
