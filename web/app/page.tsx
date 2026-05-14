@@ -1,17 +1,27 @@
 "use client";
 
-import { useState, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import { toast } from "sonner";
-import { Loader2, ChevronDown, Download } from "lucide-react";
+import {
+  Wand2,
+  Mic,
+  Sparkles,
+  Plus,
+  Save,
+  History,
+  Upload,
+  Trash2,
+  CircleDot,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -23,11 +33,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { PlayerBar } from "@/components/studio/player-bar";
+
+// --------------------------------------------------------------------------
+// Types
+// --------------------------------------------------------------------------
 
 type Gender = "male" | "female";
 type Age = "young" | "adult" | "elderly";
@@ -35,84 +45,182 @@ type Tone = "gentle" | "cheerful" | "serious" | "melancholy" | "angry";
 type Pace = "slow" | "normal" | "fast";
 type TabKey = "design" | "controllable" | "ultimate";
 
+type VoicePreset = {
+  id: string;
+  name: string;
+  gender: Gender;
+  age: Age;
+  tone: Tone;
+  pace: Pace;
+  createdAt: number;
+};
+
+type HistoryItem = {
+  id: string;
+  mode: TabKey;
+  text: string;
+  audioUrl: string;
+  filename: string;
+  timestamp: number;
+};
+
+// --------------------------------------------------------------------------
+// Constants
+// --------------------------------------------------------------------------
+
 const GENDERS: Gender[] = ["male", "female"];
 const AGES: Age[] = ["young", "adult", "elderly"];
 const TONES: Tone[] = ["gentle", "cheerful", "serious", "melancholy", "angry"];
 const PACES: Pace[] = ["slow", "normal", "fast"];
 
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
+const TABS: { key: TabKey; label: string; sub: string }[] = [
+  { key: "design", label: "Design", sub: "describe a voice" },
+  { key: "controllable", label: "Clone", sub: "ref + style" },
+  { key: "ultimate", label: "Ultimate", sub: "ref + transcript" },
+];
+
+const STORAGE_KEY_VOICES = "vox-populi:voices";
+const HISTORY_LIMIT = 12;
+
+// --------------------------------------------------------------------------
+// Helpers
+// --------------------------------------------------------------------------
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const newId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const formatRelative = (timestamp: number): string => {
+  const diff = (Date.now() - timestamp) / 1000;
+  if (diff < 60) return `${Math.floor(diff)}s`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return new Date(timestamp).toLocaleDateString();
+};
+
+// --------------------------------------------------------------------------
+// Page
+// --------------------------------------------------------------------------
 
 export default function Home() {
-  // Shared state
+  // Shared
   const [tab, setTab] = useState<TabKey>("design");
-  const [text, setText] = useState<string>("");
-  const [cfgValue, setCfgValue] = useState<number>(2.0);
-  const [inferenceTimesteps, setInferenceTimesteps] = useState<number>(10);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [audioFilename, setAudioFilename] = useState<string>("voxpop.wav");
-  const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
+  const [text, setText] = useState("");
+  const [cfgValue, setCfgValue] = useState(2.0);
+  const [inferenceTimesteps, setInferenceTimesteps] = useState(10);
+  const [loading, setLoading] = useState(false);
 
-  // Tab 1: Voice Design
+  // Output
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioFilename, setAudioFilename] = useState("voxpop.wav");
+
+  // Design
   const [gender, setGender] = useState<Gender>("female");
   const [age, setAge] = useState<Age>("adult");
   const [tone, setTone] = useState<Tone>("gentle");
   const [pace, setPace] = useState<Pace>("normal");
-  const [manualPrefixEnabled, setManualPrefixEnabled] =
-    useState<boolean>(false);
-  const [manualPrefix, setManualPrefix] = useState<string>("");
+  const [manualPrefixEnabled, setManualPrefixEnabled] = useState(false);
+  const [manualPrefix, setManualPrefix] = useState("");
 
-  // Tab 2: Controllable Cloning
+  // Controllable
   const [controllableAudio, setControllableAudio] = useState<File | null>(null);
-  const [controllableStyle, setControllableStyle] = useState<string>("");
+  const [controllableStyle, setControllableStyle] = useState("");
+  const controllableAudioRef = useRef<HTMLInputElement | null>(null);
 
-  // Tab 3: Ultimate Cloning
+  // Ultimate
   const [ultimateAudio, setUltimateAudio] = useState<File | null>(null);
-  const [ultimateTranscript, setUltimateTranscript] = useState<string>("");
+  const [ultimateTranscript, setUltimateTranscript] = useState("");
+  const ultimateAudioRef = useRef<HTMLInputElement | null>(null);
 
-  const handleControllableAudio = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    setControllableAudio(file);
-  };
+  // Voices + history (localStorage / session)
+  const [voices, setVoices] = useState<VoicePreset[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [activeVoiceId, setActiveVoiceId] = useState<string | null>(null);
 
-  const handleUltimateAudio = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    setUltimateAudio(file);
-  };
+  // ------------------ Voice presets persistence ----------------------------
 
-  const buildDesignText = (): string => {
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_VOICES);
+      if (raw) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setVoices(JSON.parse(raw) as VoicePreset[]);
+      }
+    } catch {
+      // ignore corrupt storage
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_VOICES, JSON.stringify(voices));
+    } catch {
+      // quota / availability — non-fatal
+    }
+  }, [voices]);
+
+  // ------------------ Handlers --------------------------------------------
+
+  const saveCurrentVoice = useCallback(() => {
+    const name = prompt("Name this voice", `${capitalize(tone)} ${gender}`);
+    if (!name?.trim()) return;
+    const v: VoicePreset = {
+      id: newId(),
+      name: name.trim(),
+      gender,
+      age,
+      tone,
+      pace,
+      createdAt: Date.now(),
+    };
+    setVoices((prev) => [v, ...prev]);
+    setActiveVoiceId(v.id);
+    toast.success(`Saved “${v.name}”`);
+  }, [gender, age, tone, pace]);
+
+  const loadVoice = useCallback((v: VoicePreset) => {
+    setGender(v.gender);
+    setAge(v.age);
+    setTone(v.tone);
+    setPace(v.pace);
+    setManualPrefixEnabled(false);
+    setActiveVoiceId(v.id);
+    setTab("design");
+  }, []);
+
+  const deleteVoice = useCallback(
+    (id: string) => {
+      setVoices((prev) => prev.filter((v) => v.id !== id));
+      if (activeVoiceId === id) setActiveVoiceId(null);
+    },
+    [activeVoiceId],
+  );
+
+  const buildDesignText = () => {
     const prefix = manualPrefixEnabled
       ? manualPrefix.trim()
       : `(a ${age} ${gender}, ${tone} tone, ${pace} pace)`;
     const body = text.trim();
-    if (!prefix) {
-      return body;
-    }
-    return `${prefix} ${body}`;
+    return prefix ? `${prefix} ${body}` : body;
   };
 
-  const buildControllableText = (): string => {
+  const buildControllableText = () => {
     const style = controllableStyle.trim();
     const body = text.trim();
-    if (!style) {
-      return body;
-    }
-    return `(${style}) ${body}`;
+    return style ? `(${style}) ${body}` : body;
   };
 
   const handleGenerate = async () => {
     const modalUrl = process.env.NEXT_PUBLIC_MODAL_URL;
     if (!modalUrl) {
-      toast.error(
-        "NEXT_PUBLIC_MODAL_URL not configured — set it in .env.local",
-      );
+      toast.error("NEXT_PUBLIC_MODAL_URL not configured — set it in .env.local");
       return;
     }
-
     if (!text.trim()) {
-      toast.error("Please enter some text to synthesize.");
+      toast.error("Enter some text to synthesize.");
       return;
     }
 
@@ -121,37 +229,40 @@ export default function Home() {
     formData.append("inference_timesteps", String(inferenceTimesteps));
 
     let endpoint = "";
+    let displayText = "";
     if (tab === "design") {
       endpoint = "/design";
-      formData.append("text", buildDesignText());
+      const built = buildDesignText();
+      formData.append("text", built);
+      displayText = built;
     } else if (tab === "controllable") {
       if (!controllableAudio) {
-        toast.error("Please choose a reference audio file.");
+        toast.error("Choose a reference audio file.");
         return;
       }
       endpoint = "/clone-controllable";
-      formData.append("text", buildControllableText());
+      const built = buildControllableText();
+      formData.append("text", built);
       formData.append("reference_audio", controllableAudio);
+      displayText = built;
     } else {
       if (!ultimateAudio) {
-        toast.error("Please choose a reference audio file.");
+        toast.error("Choose a reference audio file.");
         return;
       }
       if (!ultimateTranscript.trim()) {
-        toast.error("Please enter the reference audio transcript.");
+        toast.error("Enter the reference audio transcript.");
         return;
       }
       endpoint = "/clone-ultimate";
       formData.append("text", text.trim());
       formData.append("prompt_audio", ultimateAudio);
       formData.append("prompt_text", ultimateTranscript.trim());
+      displayText = text.trim();
     }
 
     setLoading(true);
-    // Revoke any prior blob URL before we overwrite it.
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-    }
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioUrl(null);
 
     try {
@@ -163,8 +274,8 @@ export default function Home() {
       if (!res.ok) {
         let message = `Request failed: ${res.status} ${res.statusText}`;
         try {
-          const contentType = res.headers.get("content-type") ?? "";
-          if (contentType.includes("application/json")) {
+          const ct = res.headers.get("content-type") ?? "";
+          if (ct.includes("application/json")) {
             const data: unknown = await res.json();
             if (
               typeof data === "object" &&
@@ -185,12 +296,10 @@ export default function Home() {
             }
           } else {
             const errText = await res.text();
-            if (errText) {
-              message = errText;
-            }
+            if (errText) message = errText;
           }
         } catch {
-          // Ignore parse errors; keep status text fallback.
+          // keep fallback
         }
         toast.error(message);
         return;
@@ -198,15 +307,30 @@ export default function Home() {
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const timestamp = new Date()
+      const ts = new Date()
         .toISOString()
         .replace(/[:.]/g, "-")
         .replace("T", "_")
         .slice(0, 19);
+      const filename = `voxpop-${ts}.wav`;
+
       setAudioUrl(url);
-      setAudioFilename(`voxpop-${timestamp}.wav`);
+      setAudioFilename(filename);
+
+      setHistory((prev) => {
+        const item: HistoryItem = {
+          id: newId(),
+          mode: tab,
+          text: displayText,
+          audioUrl: url,
+          filename,
+          timestamp: Date.now(),
+        };
+        return [item, ...prev].slice(0, HISTORY_LIMIT);
+      });
+
       toast.success("Audio generated.");
-    } catch (err: unknown) {
+    } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unknown network error.";
       toast.error(message);
@@ -215,352 +339,499 @@ export default function Home() {
     }
   };
 
+  const loadHistory = (item: HistoryItem) => {
+    setAudioUrl(item.audioUrl);
+    setAudioFilename(item.filename);
+  };
+
+  // ------------------ Derived ----------------------------------------------
+
+  const generateDisabled = useMemo(() => {
+    if (loading) return true;
+    if (!text.trim()) return true;
+    if (tab === "controllable" && !controllableAudio) return true;
+    if (tab === "ultimate" && (!ultimateAudio || !ultimateTranscript.trim()))
+      return true;
+    return false;
+  }, [
+    loading,
+    text,
+    tab,
+    controllableAudio,
+    ultimateAudio,
+    ultimateTranscript,
+  ]);
+
+  // ------------------ Render -----------------------------------------------
+
   return (
-    <main className="flex-1 flex justify-center px-4 py-10">
-      <div className="w-full max-w-3xl flex flex-col gap-6">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">vox-populi</h1>
-          <p className="text-sm text-muted-foreground">
-            Text-to-Speech powered by VoxCPM2
-          </p>
-        </header>
+    <div className="h-full flex flex-col bg-background text-foreground">
+      {/* Top bar */}
+      <header className="h-12 shrink-0 border-b border-border/60 px-4 flex items-center justify-between bg-card/40 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <CircleDot className="size-4 text-primary" />
+          <span className="font-mono text-sm tracking-tight">
+            vox<span className="text-muted-foreground">·</span>populi
+          </span>
+          <span className="text-muted-foreground/60 text-xs uppercase tracking-[0.2em]">
+            studio
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+          <span className="hidden sm:inline">voxcpm2</span>
+          <span className="size-1.5 rounded-full bg-primary/70" />
+          <span className="hidden md:inline">l4 · 48khz</span>
+        </div>
+      </header>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Synthesize</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-            <Tabs
-              value={tab}
-              onValueChange={(value) => setTab(value as TabKey)}
-              className="w-full"
-            >
-              <TabsList className="w-full">
-                <TabsTrigger value="design">Voice Design</TabsTrigger>
-                <TabsTrigger value="controllable">
-                  Controllable Cloning
-                </TabsTrigger>
-                <TabsTrigger value="ultimate">Ultimate Cloning</TabsTrigger>
-              </TabsList>
+      {/* Main */}
+      <div className="flex-1 min-h-0 flex">
+        {/* Sidebar */}
+        <aside className="hidden md:flex w-64 shrink-0 border-r border-border/60 bg-card/30 flex-col">
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {/* Voices */}
+            <section className="p-3">
+              <header className="flex items-center justify-between mb-2 px-1">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+                  Voices
+                </span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-6"
+                  onClick={saveCurrentVoice}
+                  aria-label="Save current voice"
+                >
+                  <Plus className="size-3.5" />
+                </Button>
+              </header>
+              {voices.length === 0 ? (
+                <p className="text-xs text-muted-foreground/70 px-1 leading-relaxed">
+                  No saved voices yet. Configure a Design voice and hit
+                  <Save className="inline-block size-3 mx-1 align-text-bottom" />
+                  to save.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-px">
+                  {voices.map((v) => (
+                    <li key={v.id}>
+                      <button
+                        onClick={() => loadVoice(v)}
+                        className={`group w-full text-left px-2 py-1.5 rounded text-xs flex items-center gap-2 transition-colors ${
+                          activeVoiceId === v.id
+                            ? "bg-accent text-accent-foreground"
+                            : "hover:bg-accent/40"
+                        }`}
+                      >
+                        <span
+                          className={`size-1.5 rounded-full ${
+                            activeVoiceId === v.id
+                              ? "bg-primary"
+                              : "bg-muted-foreground/40"
+                          }`}
+                        />
+                        <span className="flex-1 truncate">{v.name}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider">
+                          {v.gender[0]}·{v.age[0]}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteVoice(v.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="size-3 text-muted-foreground hover:text-destructive" />
+                        </button>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-              <TabsContent value="design" className="flex flex-col gap-4 pt-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    id="manual-prefix-toggle"
-                    type="checkbox"
-                    checked={manualPrefixEnabled}
-                    onChange={(event) =>
-                      setManualPrefixEnabled(event.target.checked)
-                    }
-                    className="size-4 rounded border-input accent-primary"
-                  />
-                  <Label
-                    htmlFor="manual-prefix-toggle"
-                    className="cursor-pointer"
-                  >
+            <div className="h-px bg-border/60 mx-3" />
+
+            {/* History */}
+            <section className="p-3">
+              <header className="flex items-center gap-2 mb-2 px-1">
+                <History className="size-3 text-muted-foreground" />
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+                  History
+                </span>
+              </header>
+              {history.length === 0 ? (
+                <p className="text-xs text-muted-foreground/70 px-1">
+                  Nothing yet this session.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-px">
+                  {history.map((h) => (
+                    <li key={h.id}>
+                      <button
+                        onClick={() => loadHistory(h)}
+                        className={`w-full text-left px-2 py-2 rounded text-xs transition-colors ${
+                          audioUrl === h.audioUrl
+                            ? "bg-accent text-accent-foreground"
+                            : "hover:bg-accent/40"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/70">
+                            {h.mode}
+                          </span>
+                          <span className="text-[10px] font-mono text-muted-foreground/60 ml-auto">
+                            {formatRelative(h.timestamp)}
+                          </span>
+                        </div>
+                        <div className="truncate text-foreground/80">
+                          {h.text || "(empty)"}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        </aside>
+
+        {/* Main canvas */}
+        <main className="flex-1 min-w-0 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-6 py-6 flex flex-col gap-5">
+            {/* Mode tabs */}
+            <div className="flex items-center gap-1 p-1 bg-card/50 rounded-lg border border-border/40 self-start">
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`group relative px-3 py-1.5 rounded-md text-xs font-mono uppercase tracking-[0.15em] transition-colors ${
+                    tab === t.key
+                      ? "bg-background text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    {t.key === "design" && <Wand2 className="size-3" />}
+                    {t.key === "controllable" && <Mic className="size-3" />}
+                    {t.key === "ultimate" && <Sparkles className="size-3" />}
+                    {t.label}
+                  </span>
+                </button>
+              ))}
+              <span className="ml-3 mr-1 text-[10px] font-mono text-muted-foreground/60 hidden lg:inline">
+                {TABS.find((t) => t.key === tab)?.sub}
+              </span>
+            </div>
+
+            {/* Mode-specific controls */}
+            {tab === "design" && (
+              <section className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+                    Voice
+                  </span>
+                  <label className="flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={manualPrefixEnabled}
+                      onChange={(e) =>
+                        setManualPrefixEnabled(e.target.checked)
+                      }
+                      className="size-3 rounded border-input accent-primary"
+                    />
                     Manual prefix
-                  </Label>
+                  </label>
                 </div>
 
                 {manualPrefixEnabled ? (
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="manual-prefix-input">
-                      Custom prefix (include parens)
-                    </Label>
-                    <Input
-                      id="manual-prefix-input"
-                      placeholder="(a young female, cheerful tone, normal pace)"
-                      value={manualPrefix}
-                      onChange={(event) =>
-                        setManualPrefix(event.target.value)
-                      }
+                  <Input
+                    placeholder="(a young female, cheerful tone, normal pace)"
+                    value={manualPrefix}
+                    onChange={(e) => setManualPrefix(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                ) : (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <VoiceSelect
+                      label="Gender"
+                      value={gender}
+                      options={GENDERS}
+                      onChange={(v) => setGender(v as Gender)}
+                    />
+                    <VoiceSelect
+                      label="Age"
+                      value={age}
+                      options={AGES}
+                      onChange={(v) => setAge(v as Age)}
+                    />
+                    <VoiceSelect
+                      label="Tone"
+                      value={tone}
+                      options={TONES}
+                      onChange={(v) => setTone(v as Tone)}
+                    />
+                    <VoiceSelect
+                      label="Pace"
+                      value={pace}
+                      options={PACES}
+                      onChange={(v) => setPace(v as Pace)}
                     />
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-2">
-                      <Label>Gender</Label>
-                      <Select
-                        value={gender}
-                        onValueChange={(value) => setGender(value as Gender)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Gender" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {GENDERS.map((value) => (
-                            <SelectItem key={value} value={value}>
-                              {capitalize(value)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <Label>Age</Label>
-                      <Select
-                        value={age}
-                        onValueChange={(value) => setAge(value as Age)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Age" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {AGES.map((value) => (
-                            <SelectItem key={value} value={value}>
-                              {capitalize(value)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <Label>Tone</Label>
-                      <Select
-                        value={tone}
-                        onValueChange={(value) => setTone(value as Tone)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Tone" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TONES.map((value) => (
-                            <SelectItem key={value} value={value}>
-                              {capitalize(value)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <Label>Pace</Label>
-                      <Select
-                        value={pace}
-                        onValueChange={(value) => setPace(value as Pace)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Pace" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PACES.map((value) => (
-                            <SelectItem key={value} value={value}>
-                              {capitalize(value)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
                 )}
+              </section>
+            )}
 
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="design-text">Text</Label>
-                  <Textarea
-                    id="design-text"
-                    rows={6}
-                    placeholder="Enter the text to synthesize…"
-                    value={text}
-                    onChange={(event) => setText(event.target.value)}
-                  />
-                </div>
-              </TabsContent>
+            {tab === "controllable" && (
+              <section className="flex flex-col gap-4">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+                  Reference + style
+                </span>
+                <FileSlot
+                  label="Reference audio"
+                  file={controllableAudio}
+                  inputRef={controllableAudioRef}
+                  onChange={(e) =>
+                    setControllableAudio(e.target.files?.[0] ?? null)
+                  }
+                />
+                <Input
+                  placeholder="optional style — e.g. slightly faster, cheerful tone"
+                  value={controllableStyle}
+                  onChange={(e) => setControllableStyle(e.target.value)}
+                  className="font-mono text-xs"
+                />
+              </section>
+            )}
 
-              <TabsContent
-                value="controllable"
-                className="flex flex-col gap-4 pt-4"
-              >
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="controllable-audio">Reference audio</Label>
-                  <Input
-                    id="controllable-audio"
-                    type="file"
-                    accept="audio/wav,audio/mpeg,audio/*"
-                    onChange={handleControllableAudio}
-                  />
-                  {controllableAudio && (
-                    <p className="text-xs text-muted-foreground">
-                      Selected: {controllableAudio.name}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="controllable-style">
-                    Style instruction (optional)
-                  </Label>
-                  <Input
-                    id="controllable-style"
-                    placeholder="e.g. cheerful, soft, fast"
-                    value={controllableStyle}
-                    onChange={(event) =>
-                      setControllableStyle(event.target.value)
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Wrapped automatically as <code>(style)</code> prefix on send.
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="controllable-text">Text</Label>
-                  <Textarea
-                    id="controllable-text"
-                    rows={6}
-                    placeholder="Enter the text to synthesize…"
-                    value={text}
-                    onChange={(event) => setText(event.target.value)}
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent
-                value="ultimate"
-                className="flex flex-col gap-4 pt-4"
-              >
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="ultimate-audio">Reference audio</Label>
-                  <Input
-                    id="ultimate-audio"
-                    type="file"
-                    accept="audio/wav,audio/mpeg,audio/*"
-                    onChange={handleUltimateAudio}
-                  />
-                  {ultimateAudio && (
-                    <p className="text-xs text-muted-foreground">
-                      Selected: {ultimateAudio.name}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="ultimate-transcript">
-                    Reference audio transcript
+            {tab === "ultimate" && (
+              <section className="flex flex-col gap-4">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+                  Reference + transcript
+                </span>
+                <FileSlot
+                  label="Reference audio"
+                  file={ultimateAudio}
+                  inputRef={ultimateAudioRef}
+                  onChange={(e) =>
+                    setUltimateAudio(e.target.files?.[0] ?? null)
+                  }
+                />
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    htmlFor="ult-transcript"
+                    className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground"
+                  >
+                    Transcript of reference
                   </Label>
                   <Textarea
-                    id="ultimate-transcript"
-                    rows={3}
-                    placeholder="The exact transcription of the reference audio…"
+                    id="ult-transcript"
+                    placeholder="Exact transcript of the reference audio"
                     value={ultimateTranscript}
-                    onChange={(event) =>
-                      setUltimateTranscript(event.target.value)
-                    }
+                    onChange={(e) => setUltimateTranscript(e.target.value)}
+                    className="min-h-[64px] resize-none font-mono text-xs"
                   />
                 </div>
+              </section>
+            )}
 
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="ultimate-text">Text</Label>
-                  <Textarea
-                    id="ultimate-text"
-                    rows={6}
-                    placeholder="Enter the new text to synthesize…"
-                    value={text}
-                    onChange={(event) => setText(event.target.value)}
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            <Collapsible
-              open={advancedOpen}
-              onOpenChange={setAdvancedOpen}
-              className="border rounded-lg"
-            >
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium hover:bg-accent/40 transition-colors rounded-lg"
+            {/* Text input */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="main-text"
+                  className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground"
                 >
-                  <span>Advanced</span>
-                  <ChevronDown
-                    className={`size-4 transition-transform ${advancedOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="px-4 pb-4 pt-2 flex flex-col gap-5">
-                <div className="flex flex-col gap-2">
-                  <div className="flex justify-between text-sm">
-                    <Label htmlFor="cfg-slider">cfg_value</Label>
-                    <span className="text-muted-foreground tabular-nums">
-                      {cfgValue.toFixed(1)}
-                    </span>
-                  </div>
-                  <Slider
-                    id="cfg-slider"
-                    min={0}
-                    max={5}
-                    step={0.1}
-                    value={[cfgValue]}
-                    onValueChange={(values) => setCfgValue(values[0] ?? 0)}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div className="flex justify-between text-sm">
-                    <Label htmlFor="timesteps-slider">
-                      inference_timesteps
-                    </Label>
-                    <span className="text-muted-foreground tabular-nums">
-                      {inferenceTimesteps}
-                    </span>
-                  </div>
-                  <Slider
-                    id="timesteps-slider"
-                    min={1}
-                    max={50}
-                    step={1}
-                    value={[inferenceTimesteps]}
-                    onValueChange={(values) =>
-                      setInferenceTimesteps(values[0] ?? 1)
-                    }
-                  />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
+                  Text to speak
+                </Label>
+                <span className="text-[10px] font-mono text-muted-foreground/60 tabular-nums">
+                  {text.length}
+                </span>
+              </div>
+              <Textarea
+                id="main-text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Type or paste what you want the voice to say…"
+                className="min-h-[160px] resize-none text-[15px] leading-relaxed"
+                autoFocus
+              />
+            </div>
 
-            <div className="flex flex-col gap-3">
+            {/* Advanced (always visible — pro tool) */}
+            <div className="grid grid-cols-2 gap-6">
+              <SliderField
+                label="CFG"
+                value={cfgValue}
+                min={0}
+                max={5}
+                step={0.1}
+                onChange={setCfgValue}
+                display={cfgValue.toFixed(1)}
+              />
+              <SliderField
+                label="Steps"
+                value={inferenceTimesteps}
+                min={1}
+                max={50}
+                step={1}
+                onChange={setInferenceTimesteps}
+                display={String(inferenceTimesteps)}
+              />
+            </div>
+
+            {/* Generate */}
+            <div className="flex items-center gap-4 pt-2">
               <Button
-                type="button"
                 onClick={handleGenerate}
-                disabled={loading}
-                className="w-full sm:w-auto"
+                disabled={generateDisabled}
+                className="h-11 px-6 font-mono text-xs uppercase tracking-[0.18em]"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Generating…
+                    <span className="size-2 rounded-full bg-primary-foreground animate-pulse" />
+                    Generating
                   </>
                 ) : (
-                  "Generate"
+                  <>
+                    <span className="size-2 rounded-full bg-primary-foreground" />
+                    Generate
+                  </>
                 )}
               </Button>
               {loading && (
-                <p className="text-xs text-muted-foreground">
-                  First request after idle can take up to ~60s (Modal cold
-                  start)
-                </p>
+                <span className="text-[11px] font-mono text-muted-foreground">
+                  first request after idle can take ~60s (cold start)
+                </span>
               )}
             </div>
-
-            {audioUrl && (
-              <div className="flex flex-col gap-3 border rounded-lg p-4">
-                <audio controls src={audioUrl} className="w-full">
-                  Your browser does not support the audio element.
-                </audio>
-                <div>
-                  <Button asChild variant="secondary" size="sm">
-                    <a href={audioUrl} download={audioFilename}>
-                      <Download className="size-4" />
-                      Download
-                    </a>
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+        </main>
       </div>
-    </main>
+
+      {/* Bottom player */}
+      <PlayerBar audioUrl={audioUrl} filename={audioFilename} />
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Subcomponents
+// --------------------------------------------------------------------------
+
+function VoiceSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+        {label}
+      </Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="w-full font-mono text-xs uppercase tracking-wide">
+          <SelectValue placeholder={label} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((v) => (
+            <SelectItem
+              key={v}
+              value={v}
+              className="font-mono text-xs uppercase tracking-wide"
+            >
+              {v}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function SliderField({
+  label,
+  value,
+  min,
+  max,
+  step,
+  display,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  display: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+          {label}
+        </Label>
+        <span className="text-[11px] font-mono tabular-nums text-foreground/80">
+          {display}
+        </span>
+      </div>
+      <Slider
+        value={[value]}
+        min={min}
+        max={max}
+        step={step}
+        onValueChange={(v) => onChange(v[0])}
+      />
+    </div>
+  );
+}
+
+function FileSlot({
+  label,
+  file,
+  inputRef,
+  onChange,
+}: {
+  label: string;
+  file: File | null;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+        {label}
+      </Label>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-dashed border-border/80 bg-card/30 hover:bg-card/60 transition-colors text-left"
+      >
+        <Upload className="size-4 shrink-0 text-muted-foreground" />
+        <span className="flex-1 min-w-0 truncate text-xs font-mono">
+          {file ? file.name : "click to choose .wav / .mp3"}
+        </span>
+        {file && (
+          <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
+            {(file.size / 1024).toFixed(0)} kb
+          </span>
+        )}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="audio/*"
+        className="hidden"
+        onChange={onChange}
+      />
+    </div>
   );
 }
