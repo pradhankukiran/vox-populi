@@ -311,7 +311,8 @@ export default function Home() {
     }
 
     setLoading(true);
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    // Don't revoke audioUrl here — it's still referenced by history entries.
+    // Blob URLs are released when the page unloads.
     setAudioUrl(null);
 
     try {
