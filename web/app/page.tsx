@@ -367,7 +367,7 @@ export default function Home() {
       <header className="h-16 shrink-0 border-b border-border px-6 flex items-center justify-between bg-card">
         <div className="flex items-center gap-3">
           <CircleDot className="size-5 text-primary" />
-          <span className="font-mono text-lg tracking-tight">
+          <span className="text-xl font-semibold tracking-tight">
             vox<span className="text-muted-foreground">·</span>populi
           </span>
         </div>
