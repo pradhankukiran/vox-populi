@@ -10,9 +10,6 @@ import {
 } from "react";
 import { toast } from "sonner";
 import {
-  Wand2,
-  Mic,
-  Sparkles,
   Plus,
   Save,
   History,
@@ -373,9 +370,6 @@ export default function Home() {
           <span className="font-mono text-lg tracking-tight">
             vox<span className="text-muted-foreground">·</span>populi
           </span>
-          <span className="text-muted-foreground text-sm uppercase tracking-[0.15em] ml-2">
-            studio
-          </span>
         </div>
         <div className="flex items-center gap-3 text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground">
           <span className="hidden sm:inline">voxcpm2</span>
@@ -512,12 +506,7 @@ export default function Home() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <span className="flex items-center gap-2.5">
-                    {t.key === "design" && <Wand2 className="size-4" />}
-                    {t.key === "controllable" && <Mic className="size-4" />}
-                    {t.key === "ultimate" && <Sparkles className="size-4" />}
-                    {t.label}
-                  </span>
+                  {t.label}
                 </button>
               ))}
               <span className="ml-4 mr-2 text-sm font-mono text-muted-foreground hidden lg:inline">
