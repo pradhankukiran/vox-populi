@@ -707,20 +707,31 @@ export default function Home() {
                 <span className="text-xs font-mono uppercase tracking-[0.15em] text-muted-foreground">
                   Reference + style
                 </span>
-                <FileSlot
-                  label="Reference audio"
-                  file={controllableAudio}
-                  inputRef={controllableAudioRef}
-                  onChange={(e) =>
-                    setControllableAudio(e.target.files?.[0] ?? null)
-                  }
-                />
-                <Input
-                  placeholder="optional style — e.g. slightly faster, cheerful tone"
-                  value={controllableStyle}
-                  onChange={(e) => setControllableStyle(e.target.value)}
-                  className="font-mono text-xs"
-                />
+                <div className="grid grid-cols-2 gap-4 items-stretch">
+                  <FileSlot
+                    label="Reference audio"
+                    file={controllableAudio}
+                    inputRef={controllableAudioRef}
+                    onChange={(e) =>
+                      setControllableAudio(e.target.files?.[0] ?? null)
+                    }
+                  />
+                  <div className="flex flex-col gap-2">
+                    <Label
+                      htmlFor="ctrl-style"
+                      className="text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground"
+                    >
+                      Style (optional)
+                    </Label>
+                    <Input
+                      id="ctrl-style"
+                      placeholder="slightly faster, cheerful tone"
+                      value={controllableStyle}
+                      onChange={(e) => setControllableStyle(e.target.value)}
+                      className="h-full font-mono text-sm"
+                    />
+                  </div>
+                </div>
               </section>
             )}
 
@@ -729,28 +740,30 @@ export default function Home() {
                 <span className="text-xs font-mono uppercase tracking-[0.15em] text-muted-foreground">
                   Reference + transcript
                 </span>
-                <FileSlot
-                  label="Reference audio"
-                  file={ultimateAudio}
-                  inputRef={ultimateAudioRef}
-                  onChange={(e) =>
-                    setUltimateAudio(e.target.files?.[0] ?? null)
-                  }
-                />
-                <div className="flex flex-col gap-1.5">
-                  <Label
-                    htmlFor="ult-transcript"
-                    className="text-xs font-mono uppercase tracking-[0.15em] text-muted-foreground"
-                  >
-                    Transcript of reference
-                  </Label>
-                  <Textarea
-                    id="ult-transcript"
-                    placeholder="Exact transcript of the reference audio"
-                    value={ultimateTranscript}
-                    onChange={(e) => setUltimateTranscript(e.target.value)}
-                    className="min-h-[64px] resize-none font-mono text-xs"
+                <div className="grid grid-cols-2 gap-4 items-start">
+                  <FileSlot
+                    label="Reference audio"
+                    file={ultimateAudio}
+                    inputRef={ultimateAudioRef}
+                    onChange={(e) =>
+                      setUltimateAudio(e.target.files?.[0] ?? null)
+                    }
                   />
+                  <div className="flex flex-col gap-2">
+                    <Label
+                      htmlFor="ult-transcript"
+                      className="text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground"
+                    >
+                      Transcript of reference
+                    </Label>
+                    <Textarea
+                      id="ult-transcript"
+                      placeholder="Exact transcript of the reference audio"
+                      value={ultimateTranscript}
+                      onChange={(e) => setUltimateTranscript(e.target.value)}
+                      className="min-h-[96px] resize-none font-mono text-sm"
+                    />
+                  </div>
                 </div>
               </section>
             )}
