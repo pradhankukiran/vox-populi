@@ -262,9 +262,17 @@ export default function Home() {
   }, []);
 
   const buildDesignText = () => {
-    const prefix = manualPrefixEnabled
-      ? manualPrefix.trim()
-      : `(a ${age} ${gender}, ${tone} tone, ${pace} pace)`;
+    let prefix: string;
+    if (manualPrefixEnabled) {
+      prefix = manualPrefix.trim();
+    } else {
+      // VoxCPM2 responds to natural-language descriptors like "woman" / "man",
+      // not biological labels like "female" / "male".
+      const genderNoun = gender === "female" ? "woman" : "man";
+      const article =
+        age === "adult" || age === "elderly" ? "An" : "A";
+      prefix = `(${article} ${age} ${genderNoun}, ${tone} tone, ${pace} pace)`;
+    }
     const body = text.trim();
     return prefix ? `${prefix} ${body}` : body;
   };
@@ -660,7 +668,7 @@ export default function Home() {
 
                 {manualPrefixEnabled ? (
                   <Input
-                    placeholder="(a young female, cheerful tone, normal pace)"
+                    placeholder="(A young woman, cheerful tone, normal pace)"
                     value={manualPrefix}
                     onChange={(e) => setManualPrefix(e.target.value)}
                     className="font-mono text-xs"
