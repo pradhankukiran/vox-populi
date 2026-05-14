@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#1c1c1f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fafafa" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#fafafa" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1280" height="320" fill="url(#bg)"/>
+  <circle cx="640" cy="160" r="280" fill="url(#glow)"/>
+
+  <g transform="translate(640, 130)">
+    <circle cx="-260" cy="0" r="34" fill="none" stroke="#fafafa" stroke-width="3"/>
+    <circle cx="-260" cy="0" r="11" fill="#fafafa"/>
+    <text x="-210" y="16" fill="#fafafa" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="64" font-weight="600" letter-spacing="-1">vox<tspan fill="#71717a">·</tspan>populi</text>
+  </g>
+
+  <text x="640" y="232" text-anchor="middle" fill="#a1a1aa" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" letter-spacing="6">TEXT · TO · SPEECH</text>
+  <text x="640" y="266" text-anchor="middle" fill="#52525b" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" letter-spacing="4">VOXCPM2  /  NANO-VLLM  /  MODAL  /  NEXT.JS</text>
+</svg>
