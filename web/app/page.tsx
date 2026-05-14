@@ -16,6 +16,7 @@ import {
   Upload,
   Trash2,
   CircleDot,
+  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PlayerBar } from "@/components/studio/player-bar";
 
 // --------------------------------------------------------------------------
@@ -41,6 +49,7 @@ type Age = "young" | "adult" | "elderly";
 type Tone = "gentle" | "cheerful" | "serious" | "melancholy" | "angry";
 type Pace = "slow" | "normal" | "fast";
 type TabKey = "design" | "controllable" | "ultimate";
+type WarmupState = "idle" | "warming" | "ready" | "error";
 
 type VoicePreset = {
   id: string;
@@ -109,6 +118,11 @@ export default function Home() {
   const [cfgValue, setCfgValue] = useState(2.0);
   const [inferenceTimesteps, setInferenceTimesteps] = useState(10);
   const [loading, setLoading] = useState(false);
+
+  // Warmup
+  const [warmupState, setWarmupState] = useState<WarmupState>("idle");
+  const [warmupOpen, setWarmupOpen] = useState(true);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Output
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -195,6 +209,44 @@ export default function Home() {
     },
     [activeVoiceId],
   );
+
+  // ------------------ Warmup ----------------------------------------------
+
+  const scheduleIdleReset = useCallback(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    // Match Modal's scaledown_window (300s); flip to idle once container has likely scaled down.
+    idleTimerRef.current = setTimeout(() => {
+      setWarmupState("idle");
+    }, 5 * 60 * 1000);
+  }, []);
+
+  const warmup = useCallback(async () => {
+    const modalUrl = process.env.NEXT_PUBLIC_MODAL_URL;
+    if (!modalUrl) {
+      setWarmupState("error");
+      toast.error("NEXT_PUBLIC_MODAL_URL not configured — set it in .env.local");
+      return;
+    }
+    setWarmupState("warming");
+    try {
+      const res = await fetch(`${modalUrl}/health`, { method: "GET" });
+      if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
+      setWarmupState("ready");
+      scheduleIdleReset();
+      setTimeout(() => setWarmupOpen(false), 700);
+    } catch (err) {
+      setWarmupState("error");
+      const message =
+        err instanceof Error ? err.message : "Warmup failed — see console";
+      toast.error(message);
+    }
+  }, [scheduleIdleReset]);
+
+  useEffect(() => {
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, []);
 
   const buildDesignText = () => {
     const prefix = manualPrefixEnabled
@@ -313,6 +365,8 @@ export default function Home() {
 
       setAudioUrl(url);
       setAudioFilename(filename);
+      setWarmupState("ready");
+      scheduleIdleReset();
 
       setHistory((prev) => {
         const item: HistoryItem = {
@@ -363,6 +417,33 @@ export default function Home() {
 
   return (
     <div className="h-full flex flex-col bg-background text-foreground">
+      {/* Warmup dialog */}
+      <Dialog open={warmupOpen} onOpenChange={setWarmupOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Warm up the GPU</DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed">
+              The Modal container scales to zero when idle. A cold start takes
+              ~60s while VoxCPM2 loads. Warm it now or skip and the first
+              Generate will warm it for you.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-4 pt-2">
+            <Button
+              onClick={warmup}
+              disabled={warmupState === "warming"}
+              className="h-11 px-6 font-mono text-sm uppercase tracking-[0.15em]"
+            >
+              {warmupState === "warming" && (
+                <Loader2 className="size-4 animate-spin" />
+              )}
+              {warmupState === "ready" ? "Warm" : "Warm up"}
+            </Button>
+            <StatusBadge state={warmupState} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Top bar */}
       <header className="h-16 shrink-0 border-b border-border px-6 flex items-center justify-between bg-card">
         <div className="flex items-center gap-3">
@@ -371,11 +452,13 @@ export default function Home() {
             vox<span className="text-muted-foreground">·</span>populi
           </span>
         </div>
-        <div className="flex items-center gap-3 text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground">
-          <span className="hidden sm:inline">voxcpm2</span>
-          <span className="size-2 rounded-full bg-primary/70" />
-          <span className="hidden md:inline">l4 · 48khz</span>
-        </div>
+        <button
+          onClick={() => setWarmupOpen(true)}
+          className="flex items-center gap-3 px-3 py-1.5 rounded-md hover:bg-muted/60 transition-colors"
+          aria-label="GPU status"
+        >
+          <StatusBadge state={warmupState} />
+        </button>
       </header>
 
       {/* Main */}
@@ -709,6 +792,23 @@ export default function Home() {
 // --------------------------------------------------------------------------
 // Subcomponents
 // --------------------------------------------------------------------------
+
+function StatusBadge({ state }: { state: WarmupState }) {
+  const config = {
+    idle: { dot: "bg-red-500", label: "cold" },
+    warming: { dot: "bg-amber-500 animate-pulse", label: "warming" },
+    ready: { dot: "bg-emerald-500", label: "ready" },
+    error: { dot: "bg-red-500", label: "error" },
+  }[state];
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`size-2.5 rounded-full ${config.dot}`} />
+      <span className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+        {config.label}
+      </span>
+    </div>
+  );
+}
 
 function VoiceSelect({
   label,
