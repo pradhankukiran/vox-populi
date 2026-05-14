@@ -86,6 +86,7 @@ const TABS: { key: TabKey; label: string; sub: string }[] = [
 ];
 
 const STORAGE_KEY_VOICES = "vox-populi:voices";
+const STORAGE_KEY_HISTORY = "vox-populi:history";
 const HISTORY_LIMIT = 12;
 
 // --------------------------------------------------------------------------
@@ -155,10 +156,14 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_VOICES);
-      if (raw) {
+      const rawV = localStorage.getItem(STORAGE_KEY_VOICES);
+      if (rawV) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setVoices(JSON.parse(raw) as VoicePreset[]);
+        setVoices(JSON.parse(rawV) as VoicePreset[]);
+      }
+      const rawH = localStorage.getItem(STORAGE_KEY_HISTORY);
+      if (rawH) {
+        setHistory(JSON.parse(rawH) as HistoryItem[]);
       }
     } catch {
       // ignore corrupt storage
@@ -172,6 +177,14 @@ export default function Home() {
       // quota / availability — non-fatal
     }
   }, [voices]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+    } catch {
+      // quota / availability — non-fatal
+    }
+  }, [history]);
 
   // ------------------ Handlers --------------------------------------------
 
@@ -356,13 +369,30 @@ export default function Home() {
       }
 
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
       const ts = new Date()
         .toISOString()
         .replace(/[:.]/g, "-")
         .replace("T", "_")
         .slice(0, 19);
       const filename = `voxpop-${ts}.wav`;
+
+      // Upload to Vercel Blob so the URL survives reloads.
+      // Fall back to an ephemeral object URL if the upload fails.
+      let permanentUrl = "";
+      try {
+        const upRes = await fetch(
+          `/api/upload?filename=${encodeURIComponent(filename)}`,
+          { method: "POST", body: blob },
+        );
+        if (upRes.ok) {
+          const data = (await upRes.json()) as { url?: string };
+          if (data.url) permanentUrl = data.url;
+        }
+      } catch {
+        // network / route failure — fall through to ephemeral URL
+      }
+
+      const url = permanentUrl || URL.createObjectURL(blob);
 
       setAudioUrl(url);
       setAudioFilename(filename);
