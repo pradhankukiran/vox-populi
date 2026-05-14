@@ -545,30 +545,40 @@ export default function Home() {
                 </p>
               ) : (
                 <ul className="flex flex-col gap-0.5">
-                  {history.map((h) => (
-                    <li key={h.id}>
-                      <button
-                        onClick={() => loadHistory(h)}
-                        className={`w-full text-left px-3 py-3 rounded-md text-sm transition-colors ${
-                          audioUrl === h.audioUrl
-                            ? "bg-accent text-accent-foreground"
-                            : "hover:bg-accent/40"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                            {h.mode}
-                          </span>
-                          <span className="text-xs font-mono text-muted-foreground ml-auto">
-                            {formatRelative(h.timestamp)}
-                          </span>
-                        </div>
-                        <div className="truncate text-foreground/90">
-                          {h.text || "(empty)"}
-                        </div>
-                      </button>
-                    </li>
-                  ))}
+                  {history.map((h) => {
+                    const active = audioUrl === h.audioUrl;
+                    return (
+                      <li key={h.id}>
+                        <button
+                          onClick={() => loadHistory(h)}
+                          className={`relative w-full text-left pl-4 pr-3 py-3 rounded-md text-sm transition-colors ${
+                            active
+                              ? "bg-background border border-border shadow-sm"
+                              : "border border-transparent hover:bg-accent/60"
+                          }`}
+                        >
+                          {active && (
+                            <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-primary" />
+                          )}
+                          <div className="flex items-center gap-2 mb-1">
+                            <span
+                              className={`text-xs font-mono uppercase tracking-wider ${
+                                active ? "text-primary" : "text-muted-foreground"
+                              }`}
+                            >
+                              {h.mode}
+                            </span>
+                            <span className="text-xs font-mono text-muted-foreground ml-auto">
+                              {formatRelative(h.timestamp)}
+                            </span>
+                          </div>
+                          <div className="truncate text-foreground/90">
+                            {h.text || "(empty)"}
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
