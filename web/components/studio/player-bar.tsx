@@ -31,11 +31,11 @@ export function PlayerBar({ audioUrl, filename }: Props) {
     const ws = WaveSurfer.create({
       container: containerRef.current,
       url: audioUrl,
-      waveColor: "#52525b",
-      progressColor: "#fafafa",
-      cursorColor: "#fafafa",
-      cursorWidth: 1,
-      height: 56,
+      waveColor: "#d4d4d8",
+      progressColor: "#18181b",
+      cursorColor: "#18181b",
+      cursorWidth: 2,
+      height: 72,
       barWidth: 2,
       barGap: 2,
       barRadius: 1,
@@ -66,38 +66,38 @@ export function PlayerBar({ audioUrl, filename }: Props) {
   };
 
   return (
-    <footer className="h-24 border-t border-border/60 bg-card/40 backdrop-blur px-4 flex items-center gap-4">
+    <footer className="h-32 border-t border-border bg-card px-6 flex items-center gap-5">
       <Button
         size="icon"
         variant={empty ? "ghost" : "default"}
         onClick={toggle}
         disabled={empty}
-        className="size-10 shrink-0 rounded-full"
+        className="size-14 shrink-0 rounded-full"
         aria-label={displayPlaying ? "Pause" : "Play"}
       >
         {displayPlaying ? (
-          <Pause className="size-4" />
+          <Pause className="size-6" />
         ) : (
-          <Play className="size-4 translate-x-[1px]" />
+          <Play className="size-6 translate-x-[1px]" />
         )}
       </Button>
 
-      <div className="flex-1 min-w-0 flex flex-col gap-1">
-        <div className="flex items-center gap-3 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground/80">
-          <AudioLines className="size-3" />
+      <div className="flex-1 min-w-0 flex flex-col gap-2">
+        <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.18em] text-muted-foreground">
+          <AudioLines className="size-4" />
           <span className="truncate">
             {empty ? "no output yet — generate to load a clip" : filename}
           </span>
         </div>
         <div className="relative flex items-center gap-3">
-          <span className="text-[11px] font-mono text-muted-foreground tabular-nums w-10 text-right">
+          <span className="text-sm font-mono text-muted-foreground tabular-nums w-12 text-right">
             {formatTime(displayCurrent)}
           </span>
           <div
             ref={containerRef}
-            className="flex-1 h-14 rounded-md bg-background/40 border border-border/40"
+            className="flex-1 h-[72px] rounded-md bg-muted/40 border border-border"
           />
-          <span className="text-[11px] font-mono text-muted-foreground tabular-nums w-10">
+          <span className="text-sm font-mono text-muted-foreground tabular-nums w-12">
             {formatTime(displayDuration)}
           </span>
         </div>
@@ -108,14 +108,14 @@ export function PlayerBar({ audioUrl, filename }: Props) {
         variant="outline"
         disabled={empty}
         asChild={!empty}
-        className="size-10 shrink-0"
+        className="size-14 shrink-0"
         aria-label="Download"
       >
         {empty ? (
-          <Download className="size-4" />
+          <Download className="size-6" />
         ) : (
           <a href={audioUrl ?? "#"} download={filename}>
-            <Download className="size-4" />
+            <Download className="size-6" />
           </a>
         )}
       </Button>

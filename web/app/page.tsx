@@ -367,19 +367,19 @@ export default function Home() {
   return (
     <div className="h-full flex flex-col bg-background text-foreground">
       {/* Top bar */}
-      <header className="h-12 shrink-0 border-b border-border/60 px-4 flex items-center justify-between bg-card/40 backdrop-blur">
+      <header className="h-16 shrink-0 border-b border-border px-6 flex items-center justify-between bg-card">
         <div className="flex items-center gap-3">
-          <CircleDot className="size-4 text-primary" />
-          <span className="font-mono text-sm tracking-tight">
+          <CircleDot className="size-5 text-primary" />
+          <span className="font-mono text-lg tracking-tight">
             vox<span className="text-muted-foreground">·</span>populi
           </span>
-          <span className="text-muted-foreground/60 text-xs uppercase tracking-[0.2em]">
+          <span className="text-muted-foreground text-sm uppercase tracking-[0.15em] ml-2">
             studio
           </span>
         </div>
-        <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+        <div className="flex items-center gap-3 text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground">
           <span className="hidden sm:inline">voxcpm2</span>
-          <span className="size-1.5 rounded-full bg-primary/70" />
+          <span className="size-2 rounded-full bg-primary/70" />
           <span className="hidden md:inline">l4 · 48khz</span>
         </div>
       </header>
@@ -387,51 +387,51 @@ export default function Home() {
       {/* Main */}
       <div className="flex-1 min-h-0 flex">
         {/* Sidebar */}
-        <aside className="hidden md:flex w-64 shrink-0 border-r border-border/60 bg-card/30 flex-col">
+        <aside className="hidden md:flex w-80 shrink-0 border-r border-border bg-muted/30 flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto">
             {/* Voices */}
-            <section className="p-3">
-              <header className="flex items-center justify-between mb-2 px-1">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+            <section className="p-5">
+              <header className="flex items-center justify-between mb-3 px-1">
+                <span className="text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground">
                   Voices
                 </span>
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="size-6"
+                  className="size-8"
                   onClick={saveCurrentVoice}
                   aria-label="Save current voice"
                 >
-                  <Plus className="size-3.5" />
+                  <Plus className="size-4" />
                 </Button>
               </header>
               {voices.length === 0 ? (
-                <p className="text-xs text-muted-foreground/70 px-1 leading-relaxed">
+                <p className="text-sm text-muted-foreground px-1 leading-relaxed">
                   No saved voices yet. Configure a Design voice and hit
-                  <Save className="inline-block size-3 mx-1 align-text-bottom" />
+                  <Save className="inline-block size-4 mx-1 align-text-bottom" />
                   to save.
                 </p>
               ) : (
-                <ul className="flex flex-col gap-px">
+                <ul className="flex flex-col gap-0.5">
                   {voices.map((v) => (
                     <li key={v.id}>
                       <button
                         onClick={() => loadVoice(v)}
-                        className={`group w-full text-left px-2 py-1.5 rounded text-xs flex items-center gap-2 transition-colors ${
+                        className={`group w-full text-left px-3 py-2.5 rounded-md text-sm flex items-center gap-3 transition-colors ${
                           activeVoiceId === v.id
                             ? "bg-accent text-accent-foreground"
                             : "hover:bg-accent/40"
                         }`}
                       >
                         <span
-                          className={`size-1.5 rounded-full ${
+                          className={`size-2 rounded-full ${
                             activeVoiceId === v.id
                               ? "bg-primary"
                               : "bg-muted-foreground/40"
                           }`}
                         />
                         <span className="flex-1 truncate">{v.name}</span>
-                        <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider">
+                        <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
                           {v.gender[0]}·{v.age[0]}
                         </span>
                         <button
@@ -442,7 +442,7 @@ export default function Home() {
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
                           aria-label="Delete"
                         >
-                          <Trash2 className="size-3 text-muted-foreground hover:text-destructive" />
+                          <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
                         </button>
                       </button>
                     </li>
@@ -451,41 +451,41 @@ export default function Home() {
               )}
             </section>
 
-            <div className="h-px bg-border/60 mx-3" />
+            <div className="h-px bg-border mx-5" />
 
             {/* History */}
-            <section className="p-3">
-              <header className="flex items-center gap-2 mb-2 px-1">
-                <History className="size-3 text-muted-foreground" />
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+            <section className="p-5">
+              <header className="flex items-center gap-2 mb-3 px-1">
+                <History className="size-4 text-muted-foreground" />
+                <span className="text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground">
                   History
                 </span>
               </header>
               {history.length === 0 ? (
-                <p className="text-xs text-muted-foreground/70 px-1">
+                <p className="text-sm text-muted-foreground px-1">
                   Nothing yet this session.
                 </p>
               ) : (
-                <ul className="flex flex-col gap-px">
+                <ul className="flex flex-col gap-0.5">
                   {history.map((h) => (
                     <li key={h.id}>
                       <button
                         onClick={() => loadHistory(h)}
-                        className={`w-full text-left px-2 py-2 rounded text-xs transition-colors ${
+                        className={`w-full text-left px-3 py-3 rounded-md text-sm transition-colors ${
                           audioUrl === h.audioUrl
                             ? "bg-accent text-accent-foreground"
                             : "hover:bg-accent/40"
                         }`}
                       >
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/70">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                             {h.mode}
                           </span>
-                          <span className="text-[10px] font-mono text-muted-foreground/60 ml-auto">
+                          <span className="text-xs font-mono text-muted-foreground ml-auto">
                             {formatRelative(h.timestamp)}
                           </span>
                         </div>
-                        <div className="truncate text-foreground/80">
+                        <div className="truncate text-foreground/90">
                           {h.text || "(empty)"}
                         </div>
                       </button>
@@ -499,28 +499,28 @@ export default function Home() {
 
         {/* Main canvas */}
         <main className="flex-1 min-w-0 overflow-y-auto">
-          <div className="max-w-3xl mx-auto px-6 py-6 flex flex-col gap-5">
+          <div className="max-w-4xl mx-auto px-10 py-10 flex flex-col gap-8">
             {/* Mode tabs */}
-            <div className="flex items-center gap-1 p-1 bg-card/50 rounded-lg border border-border/40 self-start">
+            <div className="flex items-center gap-1 p-1.5 bg-muted/40 rounded-lg border border-border self-start">
               {TABS.map((t) => (
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`group relative px-3 py-1.5 rounded-md text-xs font-mono uppercase tracking-[0.15em] transition-colors ${
+                  className={`group relative px-5 py-2.5 rounded-md text-sm font-mono uppercase tracking-[0.15em] transition-colors ${
                     tab === t.key
-                      ? "bg-background text-foreground"
+                      ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <span className="flex items-center gap-2">
-                    {t.key === "design" && <Wand2 className="size-3" />}
-                    {t.key === "controllable" && <Mic className="size-3" />}
-                    {t.key === "ultimate" && <Sparkles className="size-3" />}
+                  <span className="flex items-center gap-2.5">
+                    {t.key === "design" && <Wand2 className="size-4" />}
+                    {t.key === "controllable" && <Mic className="size-4" />}
+                    {t.key === "ultimate" && <Sparkles className="size-4" />}
                     {t.label}
                   </span>
                 </button>
               ))}
-              <span className="ml-3 mr-1 text-[10px] font-mono text-muted-foreground/60 hidden lg:inline">
+              <span className="ml-4 mr-2 text-sm font-mono text-muted-foreground hidden lg:inline">
                 {TABS.find((t) => t.key === tab)?.sub}
               </span>
             </div>
@@ -529,10 +529,10 @@ export default function Home() {
             {tab === "design" && (
               <section className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+                  <span className="text-xs font-mono uppercase tracking-[0.15em] text-muted-foreground">
                     Voice
                   </span>
-                  <label className="flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer">
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
                     <input
                       type="checkbox"
                       checked={manualPrefixEnabled}
@@ -585,7 +585,7 @@ export default function Home() {
 
             {tab === "controllable" && (
               <section className="flex flex-col gap-4">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+                <span className="text-xs font-mono uppercase tracking-[0.15em] text-muted-foreground">
                   Reference + style
                 </span>
                 <FileSlot
@@ -607,7 +607,7 @@ export default function Home() {
 
             {tab === "ultimate" && (
               <section className="flex flex-col gap-4">
-                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+                <span className="text-xs font-mono uppercase tracking-[0.15em] text-muted-foreground">
                   Reference + transcript
                 </span>
                 <FileSlot
@@ -621,7 +621,7 @@ export default function Home() {
                 <div className="flex flex-col gap-1.5">
                   <Label
                     htmlFor="ult-transcript"
-                    className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground"
+                    className="text-xs font-mono uppercase tracking-[0.15em] text-muted-foreground"
                   >
                     Transcript of reference
                   </Label>
@@ -637,15 +637,15 @@ export default function Home() {
             )}
 
             {/* Text input */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <Label
                   htmlFor="main-text"
-                  className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground"
+                  className="text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground"
                 >
                   Text to speak
                 </Label>
-                <span className="text-[10px] font-mono text-muted-foreground/60 tabular-nums">
+                <span className="text-sm font-mono text-muted-foreground tabular-nums">
                   {text.length}
                 </span>
               </div>
@@ -654,13 +654,13 @@ export default function Home() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Type or paste what you want the voice to say…"
-                className="min-h-[160px] resize-none text-[15px] leading-relaxed"
+                className="min-h-[220px] resize-none text-base leading-relaxed"
                 autoFocus
               />
             </div>
 
             {/* Advanced (always visible — pro tool) */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-8">
               <SliderField
                 label="CFG"
                 value={cfgValue}
@@ -686,7 +686,8 @@ export default function Home() {
               <Button
                 onClick={handleGenerate}
                 disabled={generateDisabled}
-                className="h-11 px-6 font-mono text-xs uppercase tracking-[0.18em]"
+                size="lg"
+                className="h-14 px-10 font-mono text-sm uppercase tracking-[0.18em]"
               >
                 {loading ? (
                   <>
@@ -701,7 +702,7 @@ export default function Home() {
                 )}
               </Button>
               {loading && (
-                <span className="text-[11px] font-mono text-muted-foreground">
+                <span className="text-sm font-mono text-muted-foreground">
                   first request after idle can take ~60s (cold start)
                 </span>
               )}
@@ -732,12 +733,12 @@ function VoiceSelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+    <div className="flex flex-col gap-2">
+      <Label className="text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground">
         {label}
       </Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="w-full font-mono text-xs uppercase tracking-wide">
+        <SelectTrigger className="w-full h-11 font-mono text-sm uppercase tracking-wide">
           <SelectValue placeholder={label} />
         </SelectTrigger>
         <SelectContent>
@@ -745,7 +746,7 @@ function VoiceSelect({
             <SelectItem
               key={v}
               value={v}
-              className="font-mono text-xs uppercase tracking-wide"
+              className="font-mono text-sm uppercase tracking-wide"
             >
               {v}
             </SelectItem>
@@ -774,12 +775,12 @@ function SliderField({
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <Label className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+        <Label className="text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground">
           {label}
         </Label>
-        <span className="text-[11px] font-mono tabular-nums text-foreground/80">
+        <span className="text-base font-mono tabular-nums text-foreground">
           {display}
         </span>
       </div>
@@ -806,21 +807,21 @@ function FileSlot({
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+    <div className="flex flex-col gap-2">
+      <Label className="text-sm font-mono uppercase tracking-[0.15em] text-muted-foreground">
         {label}
       </Label>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-dashed border-border/80 bg-card/30 hover:bg-card/60 transition-colors text-left"
+        className="flex items-center gap-3 px-4 py-4 rounded-md border border-dashed border-border bg-muted/30 hover:bg-muted/60 transition-colors text-left"
       >
-        <Upload className="size-4 shrink-0 text-muted-foreground" />
-        <span className="flex-1 min-w-0 truncate text-xs font-mono">
+        <Upload className="size-5 shrink-0 text-muted-foreground" />
+        <span className="flex-1 min-w-0 truncate text-sm font-mono">
           {file ? file.name : "click to choose .wav / .mp3"}
         </span>
         {file && (
-          <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
+          <span className="text-sm font-mono text-muted-foreground tabular-nums">
             {(file.size / 1024).toFixed(0)} kb
           </span>
         )}
