@@ -117,7 +117,6 @@ export default function Home() {
   const [tab, setTab] = useState<TabKey>("design");
   const [text, setText] = useState("");
   const [cfgValue, setCfgValue] = useState(2.0);
-  const [inferenceTimesteps, setInferenceTimesteps] = useState(10);
   const [loading, setLoading] = useState(false);
 
   // Warmup
@@ -296,7 +295,6 @@ export default function Home() {
 
     const formData = new FormData();
     formData.append("cfg_value", String(cfgValue));
-    formData.append("inference_timesteps", String(inferenceTimesteps));
 
     let endpoint = "";
     let displayText = "";
@@ -780,35 +778,24 @@ export default function Home() {
               />
             </div>
 
-            {/* Advanced (always visible — pro tool) */}
-            <div className="grid grid-cols-2 gap-8">
-              <SliderField
-                label="CFG"
-                value={cfgValue}
-                min={0}
-                max={5}
-                step={0.1}
-                onChange={setCfgValue}
-                display={cfgValue.toFixed(1)}
-              />
-              <SliderField
-                label="Steps"
-                value={inferenceTimesteps}
-                min={1}
-                max={50}
-                step={1}
-                onChange={setInferenceTimesteps}
-                display={String(inferenceTimesteps)}
-              />
-            </div>
-
-            {/* Generate */}
-            <div className="flex items-center gap-4 pt-2">
+            {/* CFG + Generate */}
+            <div className="flex items-end gap-6 pt-2">
+              <div className="flex-1">
+                <SliderField
+                  label="CFG"
+                  value={cfgValue}
+                  min={0}
+                  max={5}
+                  step={0.1}
+                  onChange={setCfgValue}
+                  display={cfgValue.toFixed(1)}
+                />
+              </div>
               <Button
                 onClick={handleGenerate}
                 disabled={generateDisabled}
                 size="lg"
-                className="h-14 px-10 font-mono text-sm uppercase tracking-[0.18em]"
+                className="h-14 px-10 font-mono text-sm uppercase tracking-[0.18em] shrink-0"
               >
                 {loading ? (
                   <>
@@ -822,11 +809,12 @@ export default function Home() {
                   </>
                 )}
               </Button>
-              {loading && (
-                <span className="text-sm font-mono text-muted-foreground">
-                  first request after idle can take ~60s (cold start)
-                </span>
-              )}
+            </div>
+            {loading && (
+              <span className="text-sm font-mono text-muted-foreground">
+                first request after idle can take ~60s (cold start)
+              </span>
+            )}
             </div>
           </div>
         </main>
