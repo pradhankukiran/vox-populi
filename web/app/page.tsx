@@ -815,7 +815,6 @@ export default function Home() {
                 first request after idle can take ~60s (cold start)
               </span>
             )}
-            </div>
           </div>
         </main>
       </div>
