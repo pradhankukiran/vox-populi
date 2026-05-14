@@ -222,6 +222,25 @@ export default function Home() {
     [activeVoiceId],
   );
 
+  const deleteHistory = useCallback(
+    async (item: HistoryItem) => {
+      setHistory((prev) => prev.filter((h) => h.id !== item.id));
+      if (audioUrl === item.audioUrl) setAudioUrl(null);
+      // Fire-and-forget delete from Vercel Blob if it looks like a Blob URL.
+      if (item.audioUrl.includes("blob.vercel-storage.com")) {
+        try {
+          await fetch(
+            `/api/delete?url=${encodeURIComponent(item.audioUrl)}`,
+            { method: "DELETE" },
+          );
+        } catch {
+          // Non-fatal — local history is already gone.
+        }
+      }
+    },
+    [audioUrl],
+  );
+
   // ------------------ Warmup ----------------------------------------------
 
   const scheduleIdleReset = useCallback(() => {
@@ -587,7 +606,7 @@ export default function Home() {
                       <li key={h.id}>
                         <button
                           onClick={() => loadHistory(h)}
-                          className={`relative w-full text-left pl-4 pr-3 py-3 rounded-md text-sm transition-colors ${
+                          className={`group relative w-full text-left pl-4 pr-3 py-3 rounded-md text-sm transition-colors ${
                             active
                               ? "bg-background border border-border shadow-sm"
                               : "border border-transparent hover:bg-accent/60"
@@ -607,6 +626,16 @@ export default function Home() {
                             <span className="text-xs font-mono text-muted-foreground ml-auto">
                               {formatRelative(h.timestamp)}
                             </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteHistory(h);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label="Delete history entry"
+                            >
+                              <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
+                            </button>
                           </div>
                           <div className="truncate text-foreground/90">
                             {h.text || "(empty)"}
