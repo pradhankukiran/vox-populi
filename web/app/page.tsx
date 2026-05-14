@@ -623,7 +623,7 @@ export default function Home() {
 
         {/* Main canvas */}
         <main className="flex-1 min-w-0 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-10 py-10 flex flex-col gap-8">
+          <div className="max-w-4xl mx-auto px-10 pt-5 pb-10 flex flex-col gap-7">
             {/* Mode tabs */}
             <div className="flex items-center gap-1 p-1.5 bg-muted/40 rounded-lg border border-border self-start">
               {TABS.map((t) => (
